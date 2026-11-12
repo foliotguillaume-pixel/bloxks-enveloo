@@ -72,7 +72,7 @@ export default function ImportCsvScreen({ navigation }: { navigation: Nav }) {
       }
       if (!parsed.length) { setRows([]); setMessage('Aucune dépense à classer. Les crédits sont exclus ; vérifie le réglage du signe si ton relevé utilise des débits positifs.'); return }
       setRows(parsed); quotaCounted.current = false
-      setMessage('Choisis une enveloppe ou « À répartir » pour chaque opération. Pour chaque doublon, tu peux importer quand même ou l’ignorer.')
+      setMessage('Choisis une enveloppe ou « Sans enveloppe » pour chaque opération. Pour chaque doublon, tu peux importer quand même ou l’ignorer.')
     } catch { setMessage('Impossible de lire ce fichier. Choisis un relevé CSV enregistré sur ton appareil.') }
   }
   const classify = (row: CsvRow, envelope: string, allowDuplicate = false) => {
@@ -102,7 +102,7 @@ export default function ImportCsvScreen({ navigation }: { navigation: Nav }) {
             {item.duplicate ? <Text style={[{ color: COLORS.muted, fontSize: 13, marginTop: 10 }, W.regular]}>Cette opération existe déjà. Importer quand même ?</Text> : null}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
               {envelopes.map((env) => <Pressable key={env.id} onPress={() => classify(item, env.id, item.duplicate)} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 18, backgroundColor: COLORS.accentSoft }}><Text numberOfLines={1} style={[{ color: COLORS.accentInk, fontSize: 13 }, W.semibold]}>{item.duplicate ? `Importer · ${env.title}` : env.title}</Text></Pressable>)}
-              <Pressable onPress={() => classify(item, UNALLOCATED_ENVELOPE_ID, item.duplicate)} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 18, backgroundColor: COLORS.accentSoft }}><Text numberOfLines={1} style={[{ color: COLORS.accentInk, fontSize: 13 }, W.semibold]}>{item.duplicate ? 'Importer · À répartir' : 'À répartir'}</Text></Pressable>
+              <Pressable onPress={() => classify(item, UNALLOCATED_ENVELOPE_ID, item.duplicate)} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 18, backgroundColor: COLORS.accentSoft }}><Text numberOfLines={1} style={[{ color: COLORS.accentInk, fontSize: 13 }, W.semibold]}>{item.duplicate ? 'Importer · Sans enveloppe' : 'Sans enveloppe'}</Text></Pressable>
               {item.duplicate ? <Pressable onPress={() => ignore(item)} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 12 }}><Text style={[{ color: COLORS.ink, fontSize: 14 }, W.semibold]}>Ignorer</Text></Pressable> : null}
             </View>
           </> : null}

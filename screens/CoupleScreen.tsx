@@ -1,11 +1,9 @@
-// B7 · Budget à deux : les deux membres, charges et enveloppes communes avec leur répartition,
-// et qui doit combien, calculé depuis les dépenses communes (qui a payé, part de chacun).
-// La demande de remboursement passe par le partage du téléphone (aucun paiement réel).
+// Budget à deux : les membres, leurs enveloppes communes et les remboursements calculés depuis les dépenses partagées.
 import { Share } from 'react-native'
 import { Screen } from '../components/Screen'
 import { Avatars, Budgets, CtaBar, List, Title, TopBar } from '../components/ui'
 import { IMAGES } from '../zzz/brandImages'
-import { A11Y, COUPLE, FIXED, PARTNER } from '../lib/content'
+import { A11Y, COUPLE, PARTNER } from '../lib/content'
 import { swatch, tabsFor, type Nav } from '../lib/nav'
 import { balanceWithPartner, euro, fill, inRange, money, monthAt, spentIn, useEnvelopes, useExpenses, useSettlements } from '../lib/budget'
 
@@ -23,24 +21,16 @@ export default function CoupleScreen({ navigation }: { navigation: Nav }) {
     if (even) return
     Share.share({ message: fill(owed > 0 ? COUPLE.request : COUPLE.pay, v) }).catch((e) => console.warn('demande de remboursement', e))
   }
-  const today = new Date().getDate()
-  const rows = [
-    ...FIXED.filter((f) => f.total).map((f) => ({
-      mono: { icon: f.icon, bg: swatch('accent').bg, fg: swatch('accent').fg }, color: swatch('accent').bar, title: f.title,
-      sub: fill(COUPLE.fixedSub, { total: euro(f.total ?? 0, false), split: f.split ?? '' }),
-      right: today >= f.day ? COUPLE.paid : fill(COUPLE.due, { day: f.day }), progress: today >= f.day ? 1 : 0,
-    })),
-    ...shared.map((e) => {
-      const spent = spentIn(monthList, e.id)
-      const s = swatch(e.swatch)
-      return {
-        mono: { icon: e.icon, bg: s.bg, fg: s.fg }, color: s.bar, title: e.title,
-        sub: fill(COUPLE.rowSub, { spent: euro(spent, false), budget: euro(e.budget, false), mine: e.mine ?? 0, theirs: 100 - (e.mine ?? 0) }),
-        right: `${e.budget - spent < 0 ? '−' : ''}${euro(e.budget - spent, false)}`, progress: e.budget > 0 ? spent / e.budget : 0,
-        onPress: () => navigation.navigate('Envelope', { id: e.id }),
-      }
-    }),
-  ]
+  const rows = shared.map((e) => {
+    const spent = spentIn(monthList, e.id)
+    const s = swatch(e.swatch)
+    return {
+      mono: { icon: e.icon, bg: s.bg, fg: s.fg }, color: s.bar, title: e.title,
+      sub: fill(COUPLE.rowSub, { spent: euro(spent, false), budget: euro(e.budget, false), mine: e.mine ?? 0, theirs: 100 - (e.mine ?? 0) }),
+      right: `${e.budget - spent < 0 ? '−' : ''}${euro(e.budget - spent, false)}`, progress: e.budget > 0 ? spent / e.budget : 0,
+      onPress: () => navigation.navigate('Envelope', { id: e.id }),
+    }
+  })
   return (
     <Screen tabs={tabsFor(navigation, 0)} footer={<CtaBar label={fill(owed >= 0 ? COUPLE.cta : COUPLE.ctaPay, v)} onPress={ask}
       link={even ? undefined : COUPLE.settle} onLink={() => setSettled((s) => Math.round((s + owed) * 100) / 100)} />} header={<TopBar onLeft={() => navigation.goBack()} leftLabel={A11Y.back} />}>

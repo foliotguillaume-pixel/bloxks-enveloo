@@ -1,21 +1,18 @@
-// B4 · Objectifs d'épargne : objectif prioritaire en carte dégradée, autres objectifs en jauges,
-// virement automatique. Toucher un objectif permet d'y ajouter ou d'en retirer de l'argent ;
-// les pourcentages et la date d'arrivée sont calculés.
+// Objectifs d'épargne : objectif prioritaire, progression des autres objectifs et versements manuels.
 import { useState } from 'react'
 import { Text, View } from 'react-native'
 import { Screen } from '../components/Screen'
-import { Budgets, Button, Card, Field, GradientCard, Note, Title } from '../components/ui'
+import { Budgets, Button, Card, Field, GradientCard, Title } from '../components/ui'
 import { COLORS, W, mix } from '../theme'
 import { GOALS, type Goal } from '../lib/content'
 import { swatch, tabsFor, type Nav } from '../lib/nav'
 import { newId } from '../lib/store'
-import { confirm, euro, fill, monthAt, monthName, parseAmount, useGoals, useMonth } from '../lib/budget'
+import { confirm, euro, fill, parseAmount, useGoals } from '../lib/budget'
 
 const pct = (g: Goal) => (g.target > 0 ? Math.min(1, g.saved / g.target) : 0)
 
 export default function GoalsScreen({ navigation }: { navigation: Nav }) {
   const { items: goals, setItems, update, remove } = useGoals()
-  const [month] = useMonth()
   const [open, setOpen] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [creating, setCreating] = useState(false)
@@ -37,13 +34,11 @@ export default function GoalsScreen({ navigation }: { navigation: Nav }) {
     setItems((prev) => [...prev, { id: newId(), title: newTitle.trim(), target, saved: 0, ...GOALS.newLook }])
     setNewTitle(''); setNewTarget(''); setCreating(false)
   }
-  // Date d'arrivée de l'objectif prioritaire au rythme du virement automatique.
-  const firstSub = first ? (() => {
-    const rest = first.target - first.saved
-    if (rest <= 0) return fill(GOALS.featuredDone, { target: euro(first.target, false) })
-    const months = month.autoSave > 0 ? Math.ceil(rest / month.autoSave) : 0
-    return fill(GOALS.featuredSub, { target: euro(first.target, false), pct: `${Math.round(pct(first) * 100)} %`, month: months ? monthName(monthAt(months).m) : '—' })
-  })() : ''
+  const firstSub = first
+    ? first.saved >= first.target
+      ? fill(GOALS.featuredDone, { target: euro(first.target, false) })
+      : fill(GOALS.featuredSub, { target: euro(first.target, false), pct: `${Math.round(pct(first) * 100)} %` })
+    : ''
   const editor = (g: Goal) => (
     <Card padding={16} style={{ marginHorizontal: 16, marginTop: 12, gap: 4 }}>
       <Text style={[{ fontSize: 15, color: COLORS.ink, paddingHorizontal: 4 }, W.bold]}>{g.title}</Text>
@@ -74,7 +69,6 @@ export default function GoalsScreen({ navigation }: { navigation: Nav }) {
         })} />
       ) : null}
       {others.map((g) => (open === g.id ? <View key={g.id}>{editor(g)}</View> : null))}
-      <Note icon={GOALS.noteIcon} text={fill(GOALS.note, { amount: euro(month.autoSave, false), day: month.autoSaveDay })} onPress={() => navigation.navigate('Plan')} />
       {creating ? (
         <Card padding={16} style={{ marginHorizontal: 16, marginTop: 12 }}>
           <Field placeholder={GOALS.titlePlaceholder} value={newTitle} onChangeText={setNewTitle} mt={0} />

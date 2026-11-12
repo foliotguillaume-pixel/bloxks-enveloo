@@ -1,12 +1,12 @@
 // Logique du budget par enveloppes : enveloppes, dépenses, objectifs d'épargne, réglages du mois,
 // remboursements à deux. Tout est enregistré sur le téléphone (lib/store) ; lib/content.ts ne
 // fournit que les données du premier lancement. Chaque chiffre affiché est calculé ici.
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import { Alert, Platform } from 'react-native'
 import { newId, useCollection, usePersistentState } from './store'
 import {
-  DATE_WORDS, DAYS, ENVELOPES_SEED, EXPENSES_SEED, FIXED, GOALS_SEED, MONTHS, MONTH_SEED,
-  type Envelope, type FixedCost, type Goal,
+  DATE_WORDS, DAYS, ENVELOPES_SEED, EXPENSES_SEED, GOALS_SEED, MONTHS, MONTH_SEED,
+  type Envelope, type Goal,
 } from './content'
 
 export const DAY = 86400000
@@ -60,36 +60,39 @@ export function when(t: number, now = Date.now()): string {
 /** Dépense enregistrée : montant positif, enveloppe, commerçant, date ; `partner` = payée par l'autre. */
 export type Expense = { id: string; amount: number; envelope: string; merchant: string; at: number; partner?: boolean; source?: 'manual' | 'csv' }
 export const UNALLOCATED_ENVELOPE_ID = '__unallocated__'
-export const isUnallocatedExpense = (expense: Expense) => !expense.envelope || expense.envelope === UNALLOCATED_ENVELOPE_ID
+const REMOVED_ENVELOPE_IDS = new Set(['e-fixed', 'e-savings'])
+export const isUnallocatedExpense = (expense: Expense) =>
+  !expense.envelope || expense.envelope === UNALLOCATED_ENVELOPE_ID || REMOVED_ENVELOPE_IDS.has(expense.envelope)
 
 function seedExpenses(now = Date.now()): Expense[] {
   const today = startOfDay(now)
-  return EXPENSES_SEED.flatMap((e, i) => {
-    const env = ENVELOPES_SEED[e.envelope]
-    if (!env) return []
+  return EXPENSES_SEED.map((e, i) => {
     const [h, m] = e.time.split(':').map(Number)
-    return [{ id: `seed-${i}`, amount: e.amount, envelope: env.id, merchant: e.merchant, at: Math.min(now, today - e.daysAgo * DAY + h * 3600000 + m * 60000), partner: e.partner }]
+    return { id: `seed-${i}`, amount: e.amount, envelope: e.envelope, merchant: e.merchant, at: Math.min(now, today - e.daysAgo * DAY + h * 3600000 + m * 60000), partner: e.partner }
   })
 }
-const monthKey = (t: number) => { const d = new Date(t); return `${d.getFullYear()}-${d.getMonth()}` }
-const seedSettledKey = () => (new Date().getDate() >= MONTH_SEED.autoSaveDay ? monthKey(Date.now()) : '')
 
 // ─── Données enregistrées ──────────────────────────────────────────────────
-export const useEnvelopes = () => useCollection<Envelope>('envelopes', ENVELOPES_SEED)
+export const useEnvelopes = () => {
+  const collection = useCollection<Envelope>('envelopes', ENVELOPES_SEED)
+  const items = useMemo(() => collection.items.filter((item) => !REMOVED_ENVELOPE_IDS.has(item.id)), [collection.items])
+  return { ...collection, items }
+}
 export const useExpenses = () => useCollection<Expense>('expenses', seedExpenses())
 export const useGoals = () => useCollection<Goal>('goals', GOALS_SEED)
-export type MonthSettings = { income: number; autoSave: number; autoSaveDay: number; autoSaveEnabled?: boolean }
-const EMPTY_MONTH_SETTINGS: MonthSettings = { income: 0, autoSave: 0, autoSaveDay: MONTH_SEED.autoSaveDay }
+export type MonthSettings = { income: number }
+const EMPTY_MONTH_SETTINGS: MonthSettings = { income: 0 }
 const EMPTY_MONTH_ENVELOPES: Record<string, Envelope[]> = {}
 const monthStorageId = (offset: number) => {
   const m = monthAt(offset)
   return `${m.y}-${pad(m.m + 1)}`
 }
 
-/** Réglages indépendants pour chaque mois ; le mois courant conserve la clé existante. */
+/** Réglages indépendants pour chaque mois : le salaire est le seul réglage conservé. */
 export function useMonthFor(offset = 0, fallback?: MonthSettings) {
   const initial = offset === 0 ? MONTH_SEED : fallback ?? EMPTY_MONTH_SETTINGS
-  return usePersistentState<MonthSettings>(offset === 0 ? 'month' : `month:${monthStorageId(offset)}`, initial)
+  const [month, setMonth, ready] = usePersistentState<MonthSettings>(offset === 0 ? 'month' : `month:${monthStorageId(offset)}`, initial)
+  return [month, setMonth, ready] as const
 }
 export const useMonth = () => useMonthFor(0)
 
@@ -100,11 +103,12 @@ export function useEnvelopesForMonth(offset = 0) {
   const key = monthStorageId(offset)
   const previousKey = monthStorageId(offset - 1)
   // Le mois courant reste relié à la liste configurée; un ancien instantané ne doit pas la masquer.
-  const items = offset === 0 ? base.items : snapshots[key] ?? snapshots[previousKey] ?? base.items
+  const savedItems = offset === 0 ? base.items : snapshots[key] ?? snapshots[previousKey] ?? base.items
+  const items = useMemo(() => savedItems.filter((item) => !REMOVED_ENVELOPE_IDS.has(item.id)), [savedItems])
 
   useEffect(() => {
     if (offset === 0 || !base.ready || !snapshotsReady || snapshots[key]) return
-    const source = snapshots[previousKey] ?? base.items
+    const source = (snapshots[previousKey] ?? base.items).filter((item) => !REMOVED_ENVELOPE_IDS.has(item.id))
     setSnapshots((current) => current[key] ? current : {
       ...current,
       [key]: source.map((item) => ({ ...item, icon: { ...item.icon } })),
@@ -147,101 +151,26 @@ export function useEnvelopesForMonth(offset = 0) {
   }, [setItems])
   return { items, setItems, add, update, remove, toggle, ready: offset === 0 ? base.ready && snapshotsReady : base.ready && snapshotsReady && !!snapshots[key], byId: (id: string) => items.find((item) => item.id === id) }
 }
-
-/** Charges fixes enregistrées par mois ; modifier un mois propage vers les mois futurs déjà préparés. */
-const EMPTY_FIXED_SNAPSHOTS: Record<string, FixedCost[]> = {}
-export function useFixedForMonth(offset = 0) {
-  const [baseItems, setBaseItems, baseReady] = usePersistentState<FixedCost[]>('fixed-costs:v1', FIXED)
-  const [snapshots, setSnapshots, snapshotsReady] = usePersistentState<Record<string, FixedCost[]>>('fixed-costs:months:v1', EMPTY_FIXED_SNAPSHOTS)
-  const key = monthStorageId(offset)
-  const previousKey = monthStorageId(offset - 1)
-  const items = offset === 0 ? baseItems : snapshots[key] ?? snapshots[previousKey] ?? baseItems
-
-  useEffect(() => {
-    if (offset === 0 || !baseReady || !snapshotsReady || snapshots[key]) return
-    const source = snapshots[previousKey] ?? baseItems
-    setSnapshots((current) => current[key] ? current : {
-      ...current,
-      [key]: source.map((item) => ({ ...item, icon: { ...item.icon } })),
-    })
-  }, [offset, baseReady, snapshotsReady, snapshots, key, previousKey, baseItems, setSnapshots])
-
-  const update = useCallback((id: string, patch: Partial<FixedCost>) => {
-    const apply = (list: FixedCost[]) => list.map((item) => item.id === id ? { ...item, ...patch } : item)
-    if (offset === 0) setBaseItems(apply)
-    setSnapshots((current) => {
-      const next = { ...current }
-      if (offset !== 0) next[key] = apply(current[key] ?? items)
-      for (const snapshotKey of Object.keys(current)) {
-        if (snapshotKey > key) next[snapshotKey] = apply(current[snapshotKey])
-      }
-      return next
-    })
-  }, [offset, setBaseItems, setSnapshots, key, items])
-
-  const remove = (id: string) => {
-    const apply = (list: FixedCost[]) => list.filter((item) => item.id !== id)
-    if (offset === 0) setBaseItems(apply)
-    setSnapshots((current) => {
-      const next = { ...current }
-      if (offset !== 0) next[key] = apply(current[key] ?? items)
-      else if (current[key]) next[key] = apply(current[key])
-      for (const snapshotKey of Object.keys(current)) {
-        if (snapshotKey > key) next[snapshotKey] = apply(current[snapshotKey])
-      }
-      return next
-    })
-  }
-
-  return { items, update, remove, ready: offset === 0 ? baseReady : baseReady && snapshotsReady && !!snapshots[key] }
-}
 export const useSelectedMonth = () => usePersistentState<number>('selected-month-offset:v1', 0)
 /** Remboursements déjà faits entre partenaires (positif = l'autre t'a remboursé). */
 export const useSettlements = () => usePersistentState<number>('settlements', SEED_SETTLED)
 
-/**
- * Virement automatique vers l'objectif prioritaire : une fois par mois, le jour choisi.
- * Monté une fois dans `Providers`.
- */
-export function AutoSaver() {
-  const goals = useGoals()
-  const [month, , monthReady] = useMonth()
-  const [last, setLast, lastReady] = usePersistentState<string>('autosave-last', seedSettledKey())
-  const ready = goals.ready && monthReady && lastReady
-  useEffect(() => {
-    if (!ready) return
-    const now = Date.now()
-    const key = monthKey(now)
-    if (last === key || new Date(now).getDate() < month.autoSaveDay || month.autoSave <= 0) return
-    const first = goals.items[0]
-    setLast(key)
-    if (first) goals.update(first.id, { saved: Math.round(first.saved + month.autoSave) })
-  }, [ready, last, month.autoSave, month.autoSaveDay]) // eslint-disable-line react-hooks/exhaustive-deps
-  return null
-}
-
 // ─── Calculs ───────────────────────────────────────────────────────────────
 export const inRange = (list: Expense[], start: number, end: number) => list.filter((e) => e.at >= start && e.at < end)
 export const total = (list: Expense[]) => list.reduce((s, e) => s + Math.round(e.amount), 0)
-export const fixedTotal = (fixed: FixedCost[] = FIXED) => fixed.reduce((s, f) => s + f.amount, 0)
-/** Budget réellement planifié, sans compter deux fois les charges fixes et leur enveloppe de suivi. */
-export function plannedAllocation(envelopes: Envelope[], fixed: FixedCost[], autoSave = 0) {
-  const fixedEnvelope = envelopes.find((item) => item.id === 'e-fixed')?.budget ?? 0
-  const otherEnvelopes = envelopes.reduce((sum, item) => sum + (item.id === 'e-fixed' ? 0 : item.budget), 0)
-  return Math.max(fixedTotal(fixed), fixedEnvelope) + otherEnvelopes + Math.max(0, autoSave)
-}
+/** Le plan compte chaque enveloppe comme une enveloppe ordinaire. */
+export const plannedAllocation = (envelopes: Envelope[]) => envelopes.reduce((sum, item) => sum + item.budget, 0)
 /** Dépensé dans une enveloppe sur une liste de dépenses. */
 export const spentIn = (list: Expense[], envelopeId: string) => total(list.filter((e) => e.envelope === envelopeId))
 
-/** État du mois en cours : fixe, dépensé, libre, reste par jour. */
-export function monthStatus(expenses: Expense[], income: number, offset = 0, now = Date.now(), fixedCosts: FixedCost[] = FIXED) {
+/** État du mois : dépenses, solde disponible et montant quotidien restant. */
+export function monthStatus(expenses: Expense[], income: number, offset = 0, now = Date.now()) {
   const m = monthAt(offset, now)
   const spent = total(inRange(expenses, m.start, m.end))
-  const fixed = fixedTotal(fixedCosts)
-  const free = income - fixed - spent
+  const free = income - spent
   const day = offset === 0 ? new Date(now).getDate() : offset < 0 ? m.days : 1
   const daysLeft = m.days - day + 1
-  return { m, day, daysLeft, spent, fixed, free, perDay: daysLeft > 0 ? free / daysLeft : free }
+  return { m, day, daysLeft, spent, free, perDay: daysLeft > 0 ? free / daysLeft : free }
 }
 
 /**
