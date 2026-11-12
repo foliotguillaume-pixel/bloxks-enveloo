@@ -755,6 +755,38 @@ export function Tags({ items, center, mt = 14 }: { items: TagItem[]; center?: bo
   )
 }
 
+/** Liste déroulante compacte pour choisir une enveloppe parmi une liste qui peut grandir. */
+export function Dropdown({ items, placeholder = 'Choisir une enveloppe', mt = 10 }: { items: TagItem[]; placeholder?: string; mt?: number }) {
+  const t = useTone()
+  const [open, setOpen] = useState(false)
+  const selected = items.find((item) => item.active)
+  return (
+    <View style={{ marginTop: mt }}>
+      <Pressable onPress={() => setOpen((value) => !value)} accessibilityRole="button" accessibilityState={{ expanded: open }}
+        accessibilityLabel={selected?.label ?? placeholder}
+        style={({ pressed }) => [{ minHeight: 48, paddingHorizontal: 14, borderRadius: kitRad(14), backgroundColor: t.dark ? t.surface : '#FFFFFF', borderWidth: 1, borderColor: t.track, flexDirection: 'row', alignItems: 'center', gap: 10, opacity: pressed ? 0.75 : 1 }]}>
+        {selected?.icon ? <Icon {...selected.icon} size={19} color={t.hl} /> : null}
+        <Text numberOfLines={1} style={[{ flex: 1, fontSize: 15, color: selected ? t.ink : t.muted }, selected ? W.semibold : W.medium]}>{selected?.label ?? placeholder}</Text>
+        <Icon name="chevron.down" android="chevron-down" size={18} color={t.muted} />
+      </Pressable>
+      {open ? (
+        <View style={{ marginTop: 6, maxHeight: 240, borderRadius: kitRad(14), overflow: 'hidden', backgroundColor: t.surface, ...(t.shadow ? SHADOW : {}) }}>
+          <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled">
+            {items.map((item, index) => (
+              <Pressable key={`${item.label}-${index}`} onPress={() => { item.onPress?.(); setOpen(false) }} disabled={!item.onPress} accessibilityRole="button" accessibilityState={{ selected: !!item.active }}
+                style={({ pressed }) => [{ minHeight: 48, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: index < items.length - 1 ? StyleSheet.hairlineWidth : 0, borderBottomColor: t.track, opacity: pressed ? 0.7 : 1 }]}>
+                {item.icon ? <Icon {...item.icon} size={19} color={item.active ? t.hl : t.muted} /> : null}
+                <Text numberOfLines={1} style={[{ flex: 1, fontSize: 15, color: t.ink }, item.active ? W.bold : W.medium]}>{item.label}</Text>
+                {item.active ? <Icon name="checkmark.circle.fill" android="checkmark-circle" size={19} color={t.hl} /> : null}
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
+    </View>
+  )
+}
+
 /** Champ de saisie (56 pt) avec icône. */
 export function Field({ icon, placeholder, value, onChangeText, mt = 16, onSubmit, keyboardType }: {
   icon?: IconName; placeholder: string; value?: string; onChangeText?: (v: string) => void; mt?: number; onSubmit?: () => void; keyboardType?: 'default' | 'numeric' | 'email-address'

@@ -1,6 +1,6 @@
 import { FlatList, Text, View } from 'react-native'
 import { Screen } from '../components/Screen'
-import { Button, Card, Tags, Title, TopBar } from '../components/ui'
+import { Button, Card, Dropdown, Title, TopBar } from '../components/ui'
 import { MonthNavigator } from '../components/MonthNavigator'
 import { A11Y, UNALLOCATED } from '../lib/content'
 import { euro, inRange, isUnallocatedExpense, monthAt, total, useEnvelopesForMonth, useExpenses, useSelectedMonth, when } from '../lib/budget'
@@ -49,11 +49,11 @@ export default function UnallocatedExpensesScreen({ navigation }: { navigation: 
             </View>
             <Text style={[{ color: COLORS.muted, fontSize: 13 }, W.medium]}>{UNALLOCATED.assignLabel}</Text>
             {envelopes.length ? (
-              <Tags items={envelopes.map((envelope) => ({
+              <Dropdown items={envelopes.map((envelope) => ({
                 label: envelope.title,
                 icon: envelope.icon,
                 onPress: () => update(item.id, { envelope: envelope.id }),
-              }))} mt={0} />
+              }))} placeholder="Choisir une enveloppe" mt={0} />
             ) : (
               <Button label="Préparer mes enveloppes" secondary onPress={() => navigation.navigate('Plan')} />
             )}
