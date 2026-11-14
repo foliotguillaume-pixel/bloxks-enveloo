@@ -151,9 +151,11 @@ let purchaseStarting = false
 const consumableListeners = new Set<(delivery: { productIdentifier: string; transactionIdentifier: string }) => void>()
 const foregroundWaiters = new Set<() => void>()
 let storeProductsCache: any[] | null = null
-// Android : produits dont le catalogue prévoit un essai que Google ne propose pas à ce client
-// (essai déjà consommé, offre absente) : aucun essai ne doit être annoncé.
+// Produits dont le catalogue prévoit un essai que le store (Google Play ou App Store) ne propose
+// pas à ce client (essai déjà consommé, offre absente) : aucun essai ne doit être annoncé.
 const trialRefusedByStore = new Set<string>()
+// Le serveur a refusé la clé publique (401/403) à la dernière lecture des droits : aucun achat ne serait vérifié.
+let keyRefused = false
 // Packs déjà signalés à onConsumableDelivered (une seule fois par transaction).
 const consumablesReported = new Set<string>()
 // Vérifications en cours (clé : transaction → produit) : la même transaction livrée deux fois
@@ -519,6 +521,58 @@ function androidPriced(product: any, offer: any): any {
   return { ...product, price: isFinite(micros) ? micros / 1000000 : product.price, displayPrice: phase.formattedPrice || product.displayPrice, currency: phase.priceCurrencyCode || product.currency }
 }
 
+/**
+ * App Store : le produit porte-t-il une offre d'essai gratuit ? null quand la réponse du store
+ * ne dit rien (champs absents) : on ne retire pas un essai sur une simple absence d'information.
+ */
+function appleFreeTrial(product: any): boolean | null {
+  const mode = product ? product.introductoryPricePaymentModeIOS : undefined
+  const offers: any[] | null = product && Array.isArray(product.subscriptionOffers) ? product.subscriptionOffers : null
+  if (mode === 'free-trial' || (offers && offers.some((o) => o && o.type === 'introductory' && o.paymentMode === 'free-trial'))) return true
+  // « Pas d'essai » seulement sur une valeur connue : une forme inattendue du store ne retire rien.
+  return mode === 'empty' || mode === 'pay-as-you-go' || mode === 'pay-up-front' ? false : null
+}
+
+const TRIAL_CHECK_TIMEOUT_MS = 2500
+
+/** Droit à l'offre d'introduction du groupe. null = illisible (erreur, StoreKit muet) : on ne conclut rien. */
+function appleTrialEligibility(mod: any, group: string): Promise<boolean | null> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(null), TRIAL_CHECK_TIMEOUT_MS)
+    Promise.resolve()
+      .then(() => mod.isEligibleForIntroOfferIOS(group))
+      .then((v: unknown) => resolve(typeof v === 'boolean' ? v : null), () => resolve(null))
+      .then(() => clearTimeout(timer))
+  })
+}
+
+/**
+ * iPhone : l'essai du catalogue n'est annoncé que si Apple porte une offre d'essai gratuit sur le
+ * produit ET que ce compte Apple y a encore droit (un essai déjà pris dans le groupe d'abonnements
+ * le retire). Sans cela le paywall promettrait un essai que la feuille d'achat ne donne pas.
+ * Relu à chaque ouverture : le droit change dès le premier achat.
+ */
+async function refreshAppleTrials(entries: CatalogEntry[], byId: Record<string, any>): Promise<void> {
+  const mod = loadIap()
+  if (!mod) return
+  const eligible: Record<string, boolean | null> = {}
+  for (const e of entries) {
+    const product = byId[e.productId]
+    if (!product || e.trialDuration === 'none') continue
+    let allowed: boolean | null = appleFreeTrial(product) !== false
+    const group = product.subscriptionGroupIdIOS
+    if (allowed && group && typeof mod.isEligibleForIntroOfferIOS === 'function') {
+      // Borné : un StoreKit qui ne répond pas ne doit jamais retenir l'ouverture du paywall.
+      if (eligible[group] === undefined) eligible[group] = await appleTrialEligibility(mod, group)
+      allowed = eligible[group]
+    }
+    // Droit illisible : on garde ce que la dernière lecture réussie a dit, sans rien conclure.
+    if (allowed === null) continue
+    if (allowed) trialRefusedByStore.delete(e.productId)
+    else trialRefusedByStore.add(e.productId)
+  }
+}
+
 function formatPrice(amount: number, currency: string): string {
   try {
     return new Intl.NumberFormat(undefined, { style: 'currency', currency: currency }).format(amount)
@@ -846,6 +900,7 @@ export async function fetchOffering(_offeringId?: string): Promise<ZzzOffering |
       else trialRefusedByStore.delete(e.productId)
     }
   }
+  if (Platform.OS === 'ios') await refreshAppleTrials(entries, byId)
   const native = !!loadIap()
   // Sur iPhone et Android, un produit que le store ne connaît pas n'est pas achetable : on ne l'affiche pas.
   const usable = native ? entries.filter((e) => !!byId[e.productId]) : entries
@@ -885,7 +940,7 @@ export function productPeriod(ref: ProductRef): string | null {
   return ctx ? ctx.period : null
 }
 
-/** Essai gratuit du produit ('none' sans essai, ou quand Google Play ne le propose pas à ce client). */
+/** Essai gratuit du produit ('none' sans essai, ou quand le store ne le propose pas à ce client). */
 export function productTrialDuration(ref: ProductRef): string {
   const key = catalogKey(ref)
   const ctx = productContext(ref)
@@ -953,6 +1008,17 @@ async function startPurchase(entry: CatalogEntry, sku: string): Promise<ZzzPurch
   if (IS_WEB) return simulatedPurchase(entry, userId)
   if (IS_EXPO_GO) return { success: false, entitlementActive: false, cancelled: false, error: 'store_build_required' }
   if (Platform.OS !== 'ios' && !IS_ANDROID) return { success: false, entitlementActive: false, cancelled: false, error: 'unsupported_platform' }
+  // Sans clé publique, l'achat ne pourrait jamais être vérifié : refus AVANT la feuille du store,
+  // sinon le client est débité sans obtenir l'accès.
+  if (!API_KEY) {
+    console.error('[Bloxks Pay] purchase refused: the public key (bxpay_pub_…) is missing from the configuration. Nothing was charged.')
+    return { success: false, entitlementActive: false, cancelled: false, error: 'not_configured' }
+  }
+  // Clé refusée par le serveur pendant cette session : même raison, l'achat ne serait jamais vérifié.
+  if (keyRefused) {
+    console.error('[Bloxks Pay] purchase refused: the server rejects the public key of this app. Nothing was charged.')
+    return { success: false, entitlementActive: false, cancelled: false, error: 'not_configured' }
+  }
   const isSub = !!PERIOD_ISO[entry.period]
   // Accès à vie déjà acquis à ce niveau ou au-dessus : l'achat n'ouvrirait rien de plus et
   // serait facturé pour rien. Un niveau supérieur reste achetable (à vie Pro → Premium), et un
@@ -1225,21 +1291,21 @@ async function fetchCustomerInfo(): Promise<CustomerInfo | null> {
   try {
     const body = await api('/v1/sdk/customer?appUserId=' + encodeURIComponent(userId), { method: 'GET' })
     const entitlements = entitlementsFromServer(body)
+    keyRefused = false
     await saveCache(userId, entitlements)
     const info = infoFrom(entitlements, userId)
     publish(info)
     return info
   } catch (e) {
-    // Clé révoquée ou app suspendue : réponse ferme de BloxksPay, pas une panne → droits fermés.
+    // Clé refusée (révoquée, remplacée) ou app suspendue : l'abonné, lui, est toujours facturé par le
+    // store. Même filet qu'une panne : seuls les nouveaux achats échouent (vérification refusée).
     const status = (e as { status?: number }).status
-    if (status === 401 || status === 403) {
-      const closed = infoFrom({}, userId)
-      publish(closed)
-      return closed
-    }
+    keyRefused = status === 401 || status === 403
+    if (keyRefused) console.warn('[Bloxks Pay] key refused by the server (' + status + '): entitlements are served from the local cache. Check the public key of this app in Bloxks Pay.')
     // Panne (réseau, 5xx, délai) : on garde ce qu'on sait (un droit déjà vérifié reste ouvert 7 jours).
     const cached = await cachedInfo(userId)
-    if (cached && userId === appUserId) current = cached
+    // Les écouteurs suivent le cache : un droit qui dépasse les 7 jours se referme aussi chez eux.
+    if (cached && userId === appUserId) publish(cached)
     return cached || current
   }
 }

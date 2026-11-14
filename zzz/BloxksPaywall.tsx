@@ -56,7 +56,7 @@ type Messages = {
   failed: string; nothing: string; restoreFailed: string; unavailable: string; close: string; retry: string; continue: string; busy: string
   pending: string; timeout: string; storeBuild: string; coinsSoon: string
   welcome: string; welcomeBody: string; credited: string; creditedBody: string; scheduled: string; scheduledBody: string; scheduledNext: string
-  activating: string; activatingBody: string; owned: string; ownedBody: string
+  activating: string; activatingBody: string; activatingLate: string; activatingLateBody: string; owned: string; ownedBody: string
 }
 // Textes propres au moteur, dans les langues du moteur ({app}, {product}, {date} remplacés à l'affichage).
 const MESSAGES: Record<string, Messages> = {
@@ -68,7 +68,7 @@ const MESSAGES: Record<string, Messages> = {
     storeBuild: 'Les achats fonctionnent dans l’app installée depuis TestFlight ou le store.', coinsSoon: 'Ton achat arrive dans un instant.',
     welcome: 'Bienvenue dans {app}', welcomeBody: 'Ton accès est actif. Merci !', credited: 'Achat reçu', creditedBody: '{product} est ajouté à ton compte.',
     scheduled: 'Changement programmé', scheduledBody: 'Passage à {product} le {date}. Rien n’est payé aujourd’hui.', scheduledNext: 'Passage à {product} à ton prochain renouvellement. Rien n’est payé aujourd’hui.',
-    activating: 'Paiement reçu', activatingBody: 'Activation en cours…', owned: 'Accès déjà actif', ownedBody: 'Tu as déjà cet accès : rien à racheter.',
+    activating: 'Paiement reçu', activatingBody: 'Activation en cours…', activatingLate: 'Activation plus longue que prévu', activatingLateBody: 'Ton paiement est bien reçu, mais ton accès n’est pas encore ouvert. Réessaie dans un instant. Si rien ne change, contacte l’assistance de l’app : ton achat n’est pas perdu.', owned: 'Accès déjà actif', ownedBody: 'Tu as déjà cet accès : rien à racheter.',
   },
   en: {
     failed: 'The purchase didn’t go through. Please try again.', nothing: 'No purchases to restore on this account.', restoreFailed: 'Restore didn’t go through. Check your connection and try again.',
@@ -78,7 +78,7 @@ const MESSAGES: Record<string, Messages> = {
     storeBuild: 'Purchases work in the app installed from TestFlight or the store.', coinsSoon: 'Your purchase is on its way.',
     welcome: 'Welcome to {app}', welcomeBody: 'Your access is active. Thank you!', credited: 'Purchase received', creditedBody: '{product} has been added to your account.',
     scheduled: 'Change scheduled', scheduledBody: 'Switching to {product} on {date}. Nothing is charged today.', scheduledNext: 'Switching to {product} at your next renewal. Nothing is charged today.',
-    activating: 'Payment received', activatingBody: 'Activating…', owned: 'Access already active', ownedBody: 'You already have this access: nothing to buy again.',
+    activating: 'Payment received', activatingBody: 'Activating…', activatingLate: 'Activation is taking longer than expected', activatingLateBody: 'Your payment went through, but your access isn’t open yet. Try again in a moment. If nothing changes, contact the app’s support: your purchase is not lost.', owned: 'Access already active', ownedBody: 'You already have this access: nothing to buy again.',
   },
   es: {
     failed: 'La compra no se ha completado. Inténtalo de nuevo.', nothing: 'No hay compras que restaurar en esta cuenta.', restoreFailed: 'No se ha podido restaurar. Comprueba tu conexión e inténtalo de nuevo.',
@@ -88,7 +88,7 @@ const MESSAGES: Record<string, Messages> = {
     storeBuild: 'Las compras funcionan en la app instalada desde TestFlight o la tienda.', coinsSoon: 'Tu compra llegará en un instante.',
     welcome: 'Bienvenido a {app}', welcomeBody: 'Tu acceso está activo. ¡Gracias!', credited: 'Compra recibida', creditedBody: '{product} se ha añadido a tu cuenta.',
     scheduled: 'Cambio programado', scheduledBody: 'Cambio a {product} el {date}. Hoy no se cobra nada.', scheduledNext: 'Cambio a {product} en tu próxima renovación. Hoy no se cobra nada.',
-    activating: 'Pago recibido', activatingBody: 'Activando…', owned: 'Acceso ya activo', ownedBody: 'Ya tienes este acceso: no hace falta volver a comprarlo.',
+    activating: 'Pago recibido', activatingBody: 'Activando…', activatingLate: 'La activación tarda más de lo previsto', activatingLateBody: 'Tu pago se ha recibido, pero tu acceso aún no está abierto. Inténtalo de nuevo en un momento. Si nada cambia, contacta con el soporte de la app: tu compra no se ha perdido.', owned: 'Acceso ya activo', ownedBody: 'Ya tienes este acceso: no hace falta volver a comprarlo.',
   },
   de: {
     failed: 'Der Kauf hat nicht geklappt. Bitte versuche es erneut.', nothing: 'Keine Käufe zum Wiederherstellen in diesem Konto.', restoreFailed: 'Wiederherstellen hat nicht geklappt. Prüfe deine Verbindung und versuche es erneut.',
@@ -98,7 +98,7 @@ const MESSAGES: Record<string, Messages> = {
     storeBuild: 'Käufe funktionieren in der App aus TestFlight oder dem Store.', coinsSoon: 'Dein Kauf ist gleich da.',
     welcome: 'Willkommen bei {app}', welcomeBody: 'Dein Zugang ist aktiv. Danke!', credited: 'Kauf erhalten', creditedBody: '{product} wurde deinem Konto hinzugefügt.',
     scheduled: 'Wechsel geplant', scheduledBody: 'Wechsel zu {product} am {date}. Heute wird nichts berechnet.', scheduledNext: 'Wechsel zu {product} bei deiner nächsten Verlängerung. Heute wird nichts berechnet.',
-    activating: 'Zahlung erhalten', activatingBody: 'Wird aktiviert…', owned: 'Zugang bereits aktiv', ownedBody: 'Du hast diesen Zugang schon: nichts erneut zu kaufen.',
+    activating: 'Zahlung erhalten', activatingBody: 'Wird aktiviert…', activatingLate: 'Die Aktivierung dauert länger als erwartet', activatingLateBody: 'Deine Zahlung ist eingegangen, aber dein Zugang ist noch nicht freigeschaltet. Versuche es gleich noch einmal. Wenn sich nichts ändert, wende dich an den Support der App: Dein Kauf ist nicht verloren.', owned: 'Zugang bereits aktiv', ownedBody: 'Du hast diesen Zugang schon: nichts erneut zu kaufen.',
   },
   it: {
     failed: 'L’acquisto non è andato a buon fine. Riprova.', nothing: 'Nessun acquisto da ripristinare su questo account.', restoreFailed: 'Il ripristino non è riuscito. Controlla la connessione e riprova.',
@@ -108,7 +108,7 @@ const MESSAGES: Record<string, Messages> = {
     storeBuild: 'Gli acquisti funzionano nell’app installata da TestFlight o dallo store.', coinsSoon: 'Il tuo acquisto sta arrivando.',
     welcome: 'Benvenuto in {app}', welcomeBody: 'Il tuo accesso è attivo. Grazie!', credited: 'Acquisto ricevuto', creditedBody: '{product} è stato aggiunto al tuo account.',
     scheduled: 'Cambio programmato', scheduledBody: 'Passaggio a {product} il {date}. Oggi non paghi nulla.', scheduledNext: 'Passaggio a {product} al prossimo rinnovo. Oggi non paghi nulla.',
-    activating: 'Pagamento ricevuto', activatingBody: 'Attivazione in corso…', owned: 'Accesso già attivo', ownedBody: 'Hai già questo accesso: niente da riacquistare.',
+    activating: 'Pagamento ricevuto', activatingBody: 'Attivazione in corso…', activatingLate: 'L’attivazione richiede più tempo del previsto', activatingLateBody: 'Il pagamento è stato ricevuto, ma il tuo accesso non è ancora attivo. Riprova tra un momento. Se non cambia nulla, contatta l’assistenza dell’app: il tuo acquisto non è perso.', owned: 'Accesso già attivo', ownedBody: 'Hai già questo accesso: niente da riacquistare.',
   },
   pt: {
     failed: 'A compra não foi concluída. Tente novamente.', nothing: 'Nenhuma compra para restaurar nesta conta.', restoreFailed: 'A restauração não foi concluída. Verifique sua conexão e tente novamente.',
@@ -118,7 +118,7 @@ const MESSAGES: Record<string, Messages> = {
     storeBuild: 'As compras funcionam no app instalado pelo TestFlight ou pela loja.', coinsSoon: 'Sua compra está chegando.',
     welcome: 'Bem-vindo ao {app}', welcomeBody: 'Seu acesso está ativo. Obrigado!', credited: 'Compra recebida', creditedBody: '{product} foi adicionado à sua conta.',
     scheduled: 'Mudança agendada', scheduledBody: 'Mudança para {product} em {date}. Nada é cobrado hoje.', scheduledNext: 'Mudança para {product} na sua próxima renovação. Nada é cobrado hoje.',
-    activating: 'Pagamento recebido', activatingBody: 'Ativando…', owned: 'Acesso já ativo', ownedBody: 'Você já tem este acesso: nada para comprar de novo.',
+    activating: 'Pagamento recebido', activatingBody: 'Ativando…', activatingLate: 'A ativação está demorando mais que o previsto', activatingLateBody: 'Seu pagamento foi recebido, mas seu acesso ainda não está liberado. Tente novamente em instantes. Se nada mudar, fale com o suporte do app: sua compra não foi perdida.', owned: 'Acesso já ativo', ownedBody: 'Você já tem este acesso: nada para comprar de novo.',
   },
 }
 const message = (locale: string) => MESSAGES[String(locale).slice(0, 2).toLowerCase()] || MESSAGES.en
@@ -136,8 +136,12 @@ type Stage =
   | { kind: 'welcome'; result: BloxksPaywallResult }
   | { kind: 'credited'; productId: string }
   | { kind: 'scheduled'; productId: string; date: string | null }
-  | { kind: 'activating'; productId: string }
+  // late : l'accès n'est pas arrivé dans le délai (produit inconnu de Bloxks Pay…) → message et sorties, plus de roue.
+  | { kind: 'activating'; productId: string; late?: boolean }
   | { kind: 'owned' }
+
+// Attente maximale de l'accès après un paiement reçu : au-delà, l'écran dit quoi faire (jamais une roue sans fin).
+const ACTIVATION_MAX_MS = 45000
 
 /** Couleurs du bouton d'achat du paywall (pour garder sa charte sur les écrans de résultat). */
 function findPurchaseButton(n: PaywallNode | undefined): PaywallNode | null {
@@ -308,8 +312,11 @@ export function PaywallScreen(props: BloxksPaywallProps) {
     if (!activatingId) return
     const ctxOf = productContext(activatingId) as { access?: string | null } | null
     const access = ctxOf && ctxOf.access ? ctxOf.access : undefined
+    const productId = activatingId
     const stop = onCustomerInfoChange((info) => { if (isEntitlementActive(info, access)) setStage({ kind: 'welcome', result: 'purchased' }) })
     const timers = [4000, 12000, 30000].map((ms) => setTimeout(() => { getCustomerInfo().catch(() => {}) }, ms))
+    // L'écoute continue après le délai : si l'accès finit par arriver, l'écran de bienvenue s'affiche quand même.
+    timers.push(setTimeout(() => setStage({ kind: 'activating', productId: productId, late: true }), ACTIVATION_MAX_MS))
     return () => { stop(); timers.forEach(clearTimeout) }
   }, [activatingId])
 
@@ -319,7 +326,10 @@ export function PaywallScreen(props: BloxksPaywallProps) {
     const locales = props.locales || deviceLocales()
     const offered = props.trialEligible === false ? packages.map((p) => Object.assign({}, p, { trial: null })) : packages
     // Pages légales de l'app (enregistrées par le routeur) : jamais un lien laissé vide ou périmé dans le document.
-    const appLinks = BRANDING.links && BRANDING.links.terms && BRANDING.links.privacy ? BRANDING.links : null
+    // Champ par champ : une app qui n'a enregistré qu'une des deux pages garde l'autre du document.
+    const own = BRANDING.links || { terms: '', privacy: '' }
+    const remoteLinks = props.paywall && props.paywall.links ? props.paywall.links : { terms: '', privacy: '' }
+    const appLinks = own.terms || own.privacy ? { terms: own.terms || remoteLinks.terms || '', privacy: own.privacy || remoteLinks.privacy || '' } : null
     const doc = props.paywall && appLinks ? Object.assign({}, props.paywall, { links: appLinks }) : props.paywall
     const remote = prepare(doc, offered, locales)
     if (remote.ok) return Object.assign({ fallback: false, reason: '' }, remote)
@@ -333,6 +343,14 @@ export function PaywallScreen(props: BloxksPaywallProps) {
     // Repli sur un document reçu (pas un paywall de base demandé) : mesuré à part, le filet de sécurité de Bloxks Pay le surveille.
     if (view.fallback && props.paywall) emit({ kind: 'paywall_fallback', reason: view.reason })
     else emit({ kind: 'paywall_impression', fallback: view.fallback })
+  }, [view])
+
+  // Apple exige les deux liens sur un écran d'abonnement : un bouton sans lien est masqué (lien mort =
+  // refus), et le développeur est prévenu. Les apps Bloxks ont toujours leurs liens (zzz/legalLinks).
+  useEffect(() => {
+    if (!view) return
+    const l = view.paywall.links || { terms: '', privacy: '' }
+    if (!l.terms || !l.privacy) console.warn('[Bloxks Pay] Paywall shown without a ' + (!l.terms && !l.privacy ? 'Terms of Use and Privacy Policy link' : !l.terms ? 'Terms of Use link' : 'Privacy Policy link') + ': Apple requires both on a subscription screen (guideline 3.1.2) and the button without a link is hidden. Call setPaywallBranding({ links: { terms, privacy } }) once at startup.')
   }, [view])
 
   // Chargement et « aucune offre » : mêmes couleurs que le système (mode sombre compris).
@@ -392,7 +410,7 @@ export function PaywallScreen(props: BloxksPaywallProps) {
       if (r.error === 'already_owned_lifetime' || (r.entitlementActive && !consumable)) { setStage({ kind: 'owned' }); return }
       emit({ kind: 'purchase_failed', productId: current, error: r.error || 'unknown' })
       const e = r.error || ''
-      setNotice(e === 'pending' ? m.pending : e === 'timeout' ? m.timeout : e === 'store_build_required' ? m.storeBuild : e === 'pending_verification' ? m.coinsSoon : m.failed)
+      setNotice(e === 'pending' ? m.pending : e === 'timeout' ? m.timeout : e === 'store_build_required' ? m.storeBuild : e === 'pending_verification' ? m.coinsSoon : e === 'not_configured' ? m.unavailable : m.failed)
     } catch {
       setNotice(m.failed)
     } finally {
@@ -411,6 +429,20 @@ export function PaywallScreen(props: BloxksPaywallProps) {
       else setNotice(r.error ? m.restoreFailed : m.nothing)
     } catch {
       setNotice(m.restoreFailed)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  // Activation trop longue : on renvoie les reçus du store (le serveur ne les a peut-être jamais reçus).
+  const retryActivation = async () => {
+    if (busy) return
+    setBusy('restore')
+    try {
+      const r = await restorePurchases()
+      if (r.entitlementActive) setStage({ kind: 'welcome', result: 'purchased' })
+    } catch {
+      /* le message reste affiché */
     } finally {
       setBusy(null)
     }
@@ -508,6 +540,8 @@ export function PaywallScreen(props: BloxksPaywallProps) {
           </Pressable>
         )
       case 'button': {
+        // Lien légal sans adresse : pas de bouton mort (avertissement console au montage).
+        if ((n.action === 'terms' && !doc.links.terms) || (n.action === 'privacy' && !doc.links.privacy)) return null
         // L'alignement du texte va au libellé ; la place dans le groupe, au bouton.
         const { textAlign, ...box } = place
         return (
@@ -526,6 +560,7 @@ export function PaywallScreen(props: BloxksPaywallProps) {
   if (stage) {
     // Écran de résultat aux couleurs du paywall : icône, titre, phrase, un seul bouton.
     const cta = findPurchaseButton(doc.footer) || findPurchaseButton(doc.root)
+    const late = stage.kind === 'activating' && !!stage.late
     const ctaBg = (cta && colorOf(cta.background, scheme)) || '#2F6BFF'
     const ctaFg = (cta && colorOf(cta.color, scheme)) || '#FFFFFF'
     const nameOf = (id: string) => { const p = pkgOf(id) || packages.find((x) => x.productId === id) || null; return p ? interpolate('{{ product.name }}', p, ctx) : '' }
@@ -533,7 +568,7 @@ export function PaywallScreen(props: BloxksPaywallProps) {
     const copy = stage.kind === 'welcome' ? [ctx.appName ? m.welcome : m.welcome.replace(/\s*\{app\}/, ''), m.welcomeBody, 'check']
       : stage.kind === 'credited' ? [m.credited, m.creditedBody, 'gift']
       : stage.kind === 'scheduled' ? [m.scheduled, values.date ? m.scheduledBody : m.scheduledNext, 'check']
-      : stage.kind === 'activating' ? [m.activating, m.activatingBody, 'sparkles']
+      : stage.kind === 'activating' ? (late ? [m.activatingLate, m.activatingLateBody, 'sparkles'] : [m.activating, m.activatingBody, 'sparkles'])
       : [m.owned, m.ownedBody, 'check']
     const result: BloxksPaywallResult = stage.kind === 'welcome' ? stage.result : stage.kind === 'owned' ? 'restored' : stage.kind === 'credited' ? 'purchased' : 'cancelled'
     return (
@@ -543,10 +578,11 @@ export function PaywallScreen(props: BloxksPaywallProps) {
           {glyph(copy[2], 30, ctaFg, ctaBg)}
           <Text accessibilityRole="header" style={[TEXT_BOX, { fontSize: 26, lineHeight: 32, fontWeight: '800', color: fg, textAlign: 'center' }, fontFor(fonts, 26, 800)]}>{fill(copy[0], values)}</Text>
           <Text accessibilityLiveRegion="polite" style={[TEXT_BOX, { fontSize: 16, lineHeight: 22, color: fg, opacity: 0.8, textAlign: 'center' }, fontFor(fonts, 16, 400)]}>{fill(copy[1], values)}</Text>
-          {stage.kind === 'activating' ? <ActivityIndicator color={fg} /> : null}
-          <Pressable accessibilityRole="button" onPress={() => close(result)} style={{ alignSelf: 'stretch', marginTop: 12, paddingVertical: 16, borderRadius: 999, alignItems: 'center', backgroundColor: ctaBg }}>
-            <Text style={[TEXT_BOX, { fontSize: 17, fontWeight: '700', color: ctaFg }, fontFor(fonts, 17, 700)]}>{stage.kind === 'activating' ? m.close : m.continue}</Text>
+          {stage.kind === 'activating' && (!late || busy) ? <ActivityIndicator color={fg} /> : null}
+          <Pressable accessibilityRole="button" disabled={late && !!busy} onPress={() => (late ? void retryActivation() : close(result))} style={{ alignSelf: 'stretch', marginTop: 12, paddingVertical: 16, borderRadius: 999, alignItems: 'center', backgroundColor: ctaBg, opacity: late && busy ? 0.7 : 1 }}>
+            <Text style={[TEXT_BOX, { fontSize: 17, fontWeight: '700', color: ctaFg }, fontFor(fonts, 17, 700)]}>{late ? m.retry : stage.kind === 'activating' ? m.close : m.continue}</Text>
           </Pressable>
+          {late ? <Pressable accessibilityRole="button" hitSlop={12} onPress={() => close(result)}><Text style={[TEXT_BOX, { fontSize: 15, fontWeight: '600', color: fg }, fontFor(fonts, 15, 600)]}>{m.close}</Text></Pressable> : null}
         </SafeAreaView>
       </View>
     )
